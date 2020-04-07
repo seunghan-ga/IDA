@@ -19,7 +19,7 @@ from idc_tool.logger import logger
 from idc_tool.config import get_config
 from idc_tool.widgets import LabelDialog
 from idc_tool.widgets import LabelQListWidget
-from idc_tool.widgets import Canvas
+from idc_tool.widgets import CanvasInit
 from idc_tool.label_file import LabelFile
 from idc_tool.label_file import LabelFileError
 from idc_tool.widgets import ZoomWidget
@@ -70,11 +70,22 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.dirty = False
 
-        # docks
+        # widgets
+        self.flag_widget = QtWidgets.QListWidget()
+        self.flag_widget.itemChanged.connect(self.setDirty)
+
+        self.zoomWidget = ZoomWidget()
+        self.zoomWidget.valueChanged.connect(self.paintCanvas)
+
         self.labelList = LabelQListWidget()
         self.labelList.setParent(self)
-        self.setCentralWidget(self.init_canvas())
 
+        # canvas
+        self.canvasInit = CanvasInit(parent=self, epsilon=self._config['epsilon'])
+        self.labelList.canvas = self.canvas = self.canvasInit.canvas
+        self.setCentralWidget(self.canvasInit.canvasWidget)
+
+        # docks
         self.inference = InferenceDock()
         self.inference_dock = self.inference.inference_dock
         self.property = PropertyDock(config=self._config)
@@ -117,14 +128,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         if config['file_search']:
             self.file.fileSearch.setText(config['file_search'])
-            self.fileSearchChanged()
-
-        # widgets
-        self.flag_widget = QtWidgets.QListWidget()
-        self.flag_widget.itemChanged.connect(self.setDirty)
-
-        self.zoomWidget = ZoomWidget()
-        self.zoomWidget.valueChanged.connect(self.paintCanvas)
+            self.file.fileSearchChanged()
 
         # Actions, menu
         self.init_action()
@@ -407,8 +411,8 @@ class MainWindow(QtWidgets.QMainWindow):
                                                          path, filters)
         if QT5:
             filename, _ = filename
-        filename = str(filename)
 
+        filename = str(filename)
         if filename:
             self.single_analysis_file = filename
             self.file_dock.setEnabled(False)
@@ -421,14 +425,14 @@ class MainWindow(QtWidgets.QMainWindow):
     def openDirDialog(self, _value=False, dirpath=None):
         if not self.mayContinue():
             return
+
         defaultOpenDirPath = dirpath if dirpath else '.'
         if self.lastOpenDir and osp.exists(self.lastOpenDir):
             defaultOpenDirPath = self.lastOpenDir
         else:
-            path_config = configparser.ConfigParser()
-            path_config.read("config/path_info.cfg")
-            default_path = path_config['xor_test_path']
+            default_path = './'
             defaultOpenDirPath = osp.dirname(self.filename) if self.filename else default_path
+
         targetDirPath = str(QtWidgets.QFileDialog.getExistingDirectory(self, '%s - Open Directory' % __appname__,
                                                                        defaultOpenDirPath,
                                                                        QtWidgets.QFileDialog.ShowDirsOnly |
@@ -440,7 +444,6 @@ class MainWindow(QtWidgets.QMainWindow):
             self.actions.openPrevImg.setEnabled(True)
             self.actions.selectFile.setEnabled(True)
             self.importDirImages(targetDirPath)
-
 
     def openNextImg(self, _value=False, load=True):
         keep_prev = self._config['keep_prev']
@@ -466,7 +469,6 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.filename and load:
             self.loadFile(self.filename)
         self._config['keep_prev'] = keep_prev
-
 
     def openPrevImg(self, _value=False):
         keep_prev = self._config['keep_prev']
@@ -712,33 +714,6 @@ class MainWindow(QtWidgets.QMainWindow):
             utils.addActions(toolbar, actions)
         self.addToolBar(Qt.LeftToolBarArea, toolbar)
         return toolbar
-
-
-    def init_canvas(self):
-        self.canvas = Canvas(epsilon=self._config['epsilon'])
-        self.labelList.canvas = self.canvas
-        lb_canvas = QtWidgets.QLabel()
-        lb_canvas.setText('Source Image')
-        lb_canvas.setStyleSheet("background-color:#DADADA;font-size:13pt;font-weight:bold;font-family:Sans Serif;")
-        lb_canvas.setFrameStyle(QtWidgets.QFrame.StyledPanel | QtWidgets.QFrame.Plain)
-
-        scrollArea = QtWidgets.QScrollArea()
-        scrollArea.setWidget(self.canvas)
-        scrollArea.setWidgetResizable(True)
-        self.scrollBars = {Qt.Vertical: scrollArea.verticalScrollBar(),
-                           Qt.Horizontal: scrollArea.horizontalScrollBar()}
-        canvasLayout = QtWidgets.QVBoxLayout()
-        canvasLayout.setContentsMargins(1, 1, 1, 1)
-        canvasLayout.setSpacing(2)
-        canvasLayout.addWidget(lb_canvas)
-        canvasLayout.addWidget(scrollArea)
-        canvasWidget = QtWidgets.QWidget()
-        canvasWidget.setLayout(canvasLayout)
-
-        self.canvas.zoomRequest.connect(self.zoomRequest)
-        self.canvas.scrollRequest.connect(self.scrollRequest)
-
-        return canvasWidget
 
     def init_action(self):
         action = functools.partial(utils.newAction, self)

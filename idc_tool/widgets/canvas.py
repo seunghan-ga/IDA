@@ -2,6 +2,8 @@ from qtpy import QtCore
 from qtpy import QtGui
 from qtpy import QtWidgets
 
+from PyQt5.QtCore import Qt
+
 from idc_tool import QT5
 import idc_tool.utils
 
@@ -704,3 +706,59 @@ class Canvas(QtWidgets.QWidget):
         self.pixmap = None
         self.shapesBackups = []
         self.update()
+
+
+class CanvasInit(Canvas):
+    def __init__(self, **kwargs):
+        super(CanvasInit, self).__init__(**kwargs)
+        self.parent = kwargs['parent']
+        self.epsilon = kwargs['epsilon']
+        self.canvas = None
+        self.scrollBars = None
+        self.canvasWidget = None
+        self.init()
+
+    def init(self):
+        self.canvas = Canvas(epsilon=self.epsilon)
+        lb_canvas = QtWidgets.QLabel()
+        lb_canvas.setText('Source Image')
+        lb_canvas.setStyleSheet("background-color:#DADADA;font-size:13pt;font-weight:bold;font-family:Sans Serif;")
+        lb_canvas.setFrameStyle(QtWidgets.QFrame.StyledPanel | QtWidgets.QFrame.Plain)
+
+        scrollArea = QtWidgets.QScrollArea()
+        scrollArea.setWidget(self.canvas)
+        scrollArea.setWidgetResizable(True)
+        self.scrollBars = {Qt.Vertical: scrollArea.verticalScrollBar(),
+                           Qt.Horizontal: scrollArea.horizontalScrollBar()}
+
+        canvasLayout = QtWidgets.QVBoxLayout()
+        canvasLayout.setContentsMargins(1, 1, 1, 1)
+        canvasLayout.setSpacing(2)
+        canvasLayout.addWidget(lb_canvas)
+        canvasLayout.addWidget(scrollArea)
+        self.canvasWidget = QtWidgets.QWidget()
+        self.canvasWidget.setLayout(canvasLayout)
+
+        self.canvas.zoomRequest.connect(self.zoomRequest)
+        self.canvas.scrollRequest.connect(self.scrollRequest)
+
+    def zoomRequest(self, delta, pos):
+        canvas_width_old = self.canvas.width()
+        units = 1.1
+        if delta < 0:
+            units = 0.9
+        self.parent.addZoom(units)
+        canvas_width_new = self.canvas.width()
+        if canvas_width_old != canvas_width_new:
+            canvas_scale_factor = canvas_width_new / canvas_width_old
+            x_shift = round(pos.x() * canvas_scale_factor) - pos.x()
+            y_shift = round(pos.y() * canvas_scale_factor) - pos.y()
+            self.scrollBars[Qt.Horizontal].setValue(
+                self.scrollBars[Qt.Horizontal].value() + x_shift)
+            self.scrollBars[Qt.Vertical].setValue(
+                self.scrollBars[Qt.Vertical].value() + y_shift)
+
+    def scrollRequest(self, delta, orientation):
+        units = - delta * 0.1  # natural scroll
+        bar = self.scrollBars[orientation]
+        bar.setValue(bar.value() + bar.singleStep() * units)
