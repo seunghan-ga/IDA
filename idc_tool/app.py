@@ -488,7 +488,7 @@ class MainWindow(QtWidgets.QMainWindow):
             print(detect_result)  # xor 2020.02.13
 
             if detect_result.returncode == 0:
-                script = ['python', '../detection_tool/demo_evaluation_transfer_learning.py']
+                script = ['python', '../detection_tool/demo_evaluation.py']
                 classification_result = subprocess.run(script, capture_output=True)
                 print(classification_result)  # xor 2020.02.13
 

@@ -43,21 +43,6 @@ class External(QThread):
     """Runs a counter thread."""
     countChanged = pyqtSignal(int)
 
-    def load_data(self, path, size=(32, 32)):
-        x = []
-        filenames = []
-        filepaths = []
-        n_samples = 0
-        for filename in os.listdir(path):
-            image_path = os.path.join(path, filename)
-            image = cv2.resize(cv2.imread(image_path), size, cv2.INTER_CUBIC)
-            x.append(image.astype(np.float32) / 255.)
-            filenames.append(filename)
-            filepaths.append(image_path)
-            n_samples += 1
-
-        return {'data': np.array(x), 'filenames': filenames, 'filepaths': filepaths, 'n_samples': n_samples}
-
     def run(self):
         count = 0
         self.countChanged.emit(count)
@@ -152,6 +137,21 @@ class External(QThread):
                 self.countChanged.emit(100)
             else:
                 self.countChanged.emit(count)
+
+    def load_data(self, path, size=(32, 32)):
+        x = []
+        filenames = []
+        filepaths = []
+        n_samples = 0
+        for filename in os.listdir(path):
+            image_path = os.path.join(path, filename)
+            image = cv2.resize(cv2.imread(image_path), size, cv2.INTER_CUBIC)
+            x.append(image.astype(np.float32) / 255.)
+            filenames.append(filename)
+            filepaths.append(image_path)
+            n_samples += 1
+
+        return {'data': np.array(x), 'filenames': filenames, 'filepaths': filepaths, 'n_samples': n_samples}
 
 
 class Actions(QDialog):
