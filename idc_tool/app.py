@@ -37,7 +37,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def __init__(self, **kwargs):
         super(MainWindow, self).__init__()
-
         self.setWindowTitle(__appname__)
 
         config = kwargs['config'] if 'config' in kwargs else None
@@ -65,9 +64,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self._selectedAll = False
         self._noSelectionSlot = False
-
         self.lastOpenDir = None
-
         self.dirty = False
 
         # widgets
@@ -82,7 +79,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # canvas
         self.canvasInit = CanvasInit(parent=self, epsilon=self._config['epsilon'])
-        self.labelList.canvas = self.canvas = self.canvasInit.canvas
+        self.canvas = self.canvasInit.canvas
+        self.labelList.canvas = self.canvas
         self.setCentralWidget(self.canvasInit.canvasWidget)
 
         # docks
@@ -150,16 +148,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.settings = QtCore.QSettings('ImageDefectAnalytics', 'ImageDefectAnalytics')
         # FIXME: QSettings.value can return None on PyQt4
         self.recentFiles = self.settings.value('recentFiles', []) or []
-        size = self.settings.value('window/size', QtCore.QSize(600, 500))
-        position = self.settings.value('window/position', QtCore.QPoint(0, 0))
-        self.resize(size)
-        self.move(position)
-        self.restoreState(self.settings.value('window/state', QtCore.QByteArray()))
+        # self.resize(self.settings.value('window/size', QtCore.QSize(600, 500)))
+        # self.move(self.settings.value('window/position', QtCore.QPoint(0, 0)))
+        # self.restoreState(self.settings.value('window/state', QtCore.QByteArray()))
+        self.populateModeActions()
         self.updateFileMenu()
         if self.filename is not None:
             self.queueEvent(functools.partial(self.loadFile, self.filename))
-        self.populateModeActions()
-
         self.statusBar().showMessage('%s started.' % __appname__)
         self.statusBar().show()
 
@@ -181,7 +176,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def errorMessage(self, title, message):
         return QtWidgets.QMessageBox.critical(self, title, '<p><b>%s</b></p>%s' % (title, message))
 
-    # ============================================ default function. =================================================
+    # ============================================ default function. ==================================================
     def setZoom(self, value):
         self.actions.fitWidth.setChecked(False)
         self.actions.fitWindow.setChecked(False)
@@ -190,27 +185,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def addZoom(self, increment=1.1):
         self.setZoom(self.zoomWidget.value() * increment)
-
-    def zoomRequest(self, delta, pos):
-        canvas_width_old = self.canvas.width()
-        units = 1.1
-        if delta < 0:
-            units = 0.9
-        self.addZoom(units)
-        canvas_width_new = self.canvas.width()
-        if canvas_width_old != canvas_width_new:
-            canvas_scale_factor = canvas_width_new / canvas_width_old
-            x_shift = round(pos.x() * canvas_scale_factor) - pos.x()
-            y_shift = round(pos.y() * canvas_scale_factor) - pos.y()
-            self.scrollBars[Qt.Horizontal].setValue(
-                self.scrollBars[Qt.Horizontal].value() + x_shift)
-            self.scrollBars[Qt.Vertical].setValue(
-                self.scrollBars[Qt.Vertical].value() + y_shift)
-
-    def scrollRequest(self, delta, orientation):
-        units = - delta * 0.1  # natural scroll
-        bar = self.scrollBars[orientation]
-        bar.setValue(bar.value() + bar.singleStep() * units)
 
     def scanAllImages(self, folderPath):
         extensions = ['.%s' % fmt.data().decode("ascii").lower() for fmt in QtGui.QImageReader.supportedImageFormats()]
@@ -547,7 +521,7 @@ class MainWindow(QtWidgets.QMainWindow):
             path_config.read("config/path_info.cfg")
             result_path_total = path_config['PATH_INFO']['eval_result_path_total']
             result_path_text = path_config['PATH_INFO']['eval_result_path_text']
-            crop_path = (path_config['PATH_INFO']['crop_path'])
+            labeled_path = path_config['PATH_INFO']['labeled_path']
 
             pixmap = QPixmap(result_path_total)
             pixmap = pixmap.scaled(QSize(min(self.size().width(), 384), min(self.size().height(), 384)),
@@ -562,28 +536,23 @@ class MainWindow(QtWidgets.QMainWindow):
             self.inference.lb_result_value.clear()
             self.inference.lb_result_value.insertPlainText("Number of PCB : {0} \n".format(result_value[0]))
             self.inference.lb_result_value.insertPlainText("Number of Defects : {0} \n".format(result_value[1]))
-            self.inference.lb_result_value.insertPlainText("Accuracy : {0} \n".format(result_value[2]))
+            # self.inference.lb_result_value.insertPlainText("Accuracy : {0} \n".format(result_value[2]))
 
             classes = self.category.get_classes()
-            crop_path_list = []
-            crop_file_list = []
+            labeled_file_list = {}
             for i in result_value[3:]:
-                crop_path_list.append(crop_path + classes[int(i)] + '/')
-                for file in os.listdir(crop_path + classes[int(i)] + '/'):
-                    if file in crop_file_list:
-                        pass
-                    else:
-                        crop_file_list.append(file)
+                file_path = os.path.abspath(os.path.join(labeled_path, classes[int(i)]))
+                for file in os.listdir(file_path):
+                    labeled_file_list.__setitem__(file, {'path': file_path, 'class': classes[int(i)]})
 
-            if os.path.exists(crop_path + 'tmp/'):
-                for file in os.listdir(crop_path + 'tmp/'):
-                    crop_path_list.append(crop_path + 'tmp/')
-                    crop_file_list.append('nolabel_' + file)
+            nonlabel_path = os.path.abspath(os.path.join(labeled_path, 'tmp'))
+            if os.path.exists(nonlabel_path):
+                for file in os.listdir(nonlabel_path):
+                    labeled_file_list.__setitem__(file, {'path': nonlabel_path, 'class': 'None'})
 
-            for file in crop_file_list:
+            for file in labeled_file_list.keys():
                 self.category.crop_image_list.addItem(file)
-            self.category.crop_path_list = crop_path_list
-            self.category.crop_file_list = crop_file_list
+            self.category.labeled_file_list = labeled_file_list
 
     def selectFile(self):
         if self._selectedAll == False:

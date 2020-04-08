@@ -42,6 +42,7 @@ class External(QThread):
         count = 0
         self.countChanged.emit(count)
         s = time.time()
+
         if os.path.exists(_crop_path):
             shutil.rmtree(_crop_path)
         if os.path.exists(_origin_path):
@@ -72,8 +73,8 @@ class External(QThread):
                 os.makedirs(_crop_path)
             if not os.path.exists(_generate_path):
                 os.mkdir(_generate_path)
-            if not os.path.exists(_crop_path + defect):
-                os.mkdir(_crop_path + defect)
+            # if not os.path.exists(_crop_path + defect):
+            #     os.mkdir(_crop_path + defect)
             if not os.path.exists(_origin_path + defect):
                 os.mkdir(_origin_path + defect)
             if not os.path.exists(_generate_path + defect):
@@ -100,7 +101,7 @@ class External(QThread):
                                                 correction=20,
                                                 filename1=files[i].split('.')[0],
                                                 filename2=files[i],
-                                                crop_path=os.path.join(_crop_path, dest_path),
+                                                crop_path=os.path.join(_crop_path),
                                                 origin_path=os.path.join(_origin_path, dest_path),
                                                 result_path=_result_path)
             self.countChanged.emit(count)

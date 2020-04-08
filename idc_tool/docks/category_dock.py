@@ -1,6 +1,6 @@
 import configparser
 import os
-import cv2
+import shutil
 
 from qtpy import QtWidgets
 
@@ -31,9 +31,10 @@ class CategoryDock(QtWidgets.QWidget):
         self.catLayout = None
         self.baseWidget = None
         self.category_dock = None
-        self.crop_path_list = None
-        self.crop_file_list = None
+        self.labeled_file_list = None
         self.selected_file_path = None
+        self.selected_file_name = None
+        self.selected_file_type = None
         self.init_UI()
 
     def init_UI(self):
@@ -115,73 +116,90 @@ class CategoryDock(QtWidgets.QWidget):
         return cls
 
     def add_cless(self):
-        config = configparser.ConfigParser()
-        config.read("config/classes.cfg")
-        cls = (config['CLASSES']['classes']).split(',')
-        new_class = self.catLineEditWidget.text()
-        if len(new_class) > 0:
-            self.catListWidget.addItem(new_class)
-            cls.append(new_class)
+        try:
+            config = configparser.ConfigParser()
+            config.read("config/classes.cfg")
+            cls = (config['CLASSES']['classes']).split(',')
+            new_class = self.catLineEditWidget.text()
+            if len(new_class) > 0:
+                self.catListWidget.addItem(new_class)
+                cls.append(new_class)
+                tmp = ''
+                for i in cls:
+                    tmp = tmp + i + ','
+                added_classes = tmp[:-1]
+                config.set('CLASSES', 'classes', added_classes)
+                with open("config/classes.cfg", 'w') as configfile:
+                    config.write(configfile)
+                    configfile.close()
+                self.classes = self.get_classes()
+
+                QtWidgets.QMessageBox.about(self, "message", "Add Category : %s" % new_class)
+        except Exception as e:
+            pass
+
+    def delete_class(self):
+        try:
+            config = configparser.ConfigParser()
+            config.read("config/classes.cfg")
+            cls = (config['CLASSES']['classes']).split(',')
+            del_class = self.catListWidget.currentText()
+            self.catListWidget.removeItem(self.catListWidget.currentIndex())
+            cls.remove(del_class)
             tmp = ''
             for i in cls:
                 tmp = tmp + i + ','
-            added_classes = tmp[:-1]
-            config.set('CLASSES', 'classes', added_classes)
+            deleted_classes = tmp[:-1]
+            config.set('CLASSES', 'classes', deleted_classes)
             with open("config/classes.cfg", 'w') as configfile:
                 config.write(configfile)
                 configfile.close()
+            self.classes = self.get_classes()
 
-            QtWidgets.QMessageBox.about(self, "message", "Add Category : %s" % new_class)
-
-    def delete_class(self):
-        config = configparser.ConfigParser()
-        config.read("config/classes.cfg")
-        cls = (config['CLASSES']['classes']).split(',')
-        del_class = self.catListWidget.currentText()
-        self.catListWidget.removeItem(self.catListWidget.currentIndex())
-        cls.remove(del_class)
-        tmp = ''
-        for i in cls:
-            tmp = tmp + i + ','
-        deleted_classes = tmp[:-1]
-        config.set('CLASSES', 'classes', deleted_classes)
-        with open("config/classes.cfg", 'w') as configfile:
-            config.write(configfile)
-            configfile.close()
-
-        QtWidgets.QMessageBox.about(self, "message", "Delete Category : %s" % del_class)
+            QtWidgets.QMessageBox.about(self, "message", "Delete Category : %s" % del_class)
+        except Exception as e:
+            pass
 
     def category_save(self):
-        config = configparser.ConfigParser()
-        config.read("config/path_info.cfg")
-        labeled_path = (config['PATH_INFO']['labeled_path'])
+        try:
+            config = configparser.ConfigParser()
+            config.read("config/path_info.cfg")
+            labeled_path = (config['PATH_INFO']['labeled_path'])
 
-        category = self.catListWidget.currentText()
-        move_to_path = labeled_path + category + '/'
+            file_name = self.selected_file_name
+            ch_category = self.catListWidget.currentText()
+            src_dir = os.path.abspath(self.selected_file_path)
+            dst_dir = os.path.abspath(os.path.join(labeled_path, ch_category))
 
-        if os.path.exists(move_to_path) is False:
-            os.makedirs(move_to_path)
+            if os.path.exists(dst_dir) is False:
+                os.makedirs(dst_dir)
 
-        past_filename = self.selected_file_path.split('/')[-1]
-        past_category = self.selected_file_path.split('/')[-2]
-        crop_img = cv2.imread(self.selected_file_path)
-        cv2.imwrite(move_to_path + past_filename, crop_img)
+            shutil.move(os.path.join(src_dir, file_name), os.path.join(dst_dir, file_name))
 
-        if os.path.exists(labeled_path + past_category + '/' + past_filename) is True:
-            os.remove(labeled_path + past_category + '/' + past_filename)
+            self.labeled_file_list[file_name]['path'] = dst_dir
+            self.labeled_file_list[file_name]['class'] = ch_category
 
-        QtWidgets.QMessageBox.about(self, "message", "Move Category\n(%s -> %s)"
-                                    % (self.selected_file_path.split('/')[-1], category))
+            QtWidgets.QMessageBox.about(self, "message", "Move Category\n(%s -> %s)"
+                                        % (self.selected_file_type, ch_category))
+        except Exception as e:
+            pass
 
     def select_crop_image(self):
-        select_file_path = self.crop_path_list[self.crop_image_list.currentRow()]
-        seleft_filename = self.crop_file_list[self.crop_image_list.currentRow()]
-        self.selected_file_path = str(select_file_path + seleft_filename).replace(' ', '')
+        try:
+            current_item = self.crop_image_list.currentItem()
 
-        img = QPixmap(self.selected_file_path)
-        img = img.scaled(QSize(min(self.size().width(), 64), min(self.size().height(), 64)),
-                   Qt.KeepAspectRatioByExpanding, Qt.FastTransformation)
+            self.selected_file_name = current_item.text()
+            self.selected_file_path = self.labeled_file_list[self.selected_file_name]['path']
+            self.selected_file_type = self.labeled_file_list[self.selected_file_name]['class']
 
-        self.crop_image_viewer.resize(img.width(), img.height())
-        self.crop_image_viewer.setPixmap(img)
-        self.crop_image_viewer.show()
+            self.catListWidget.setCurrentIndex(self.classes.index(self.selected_file_type))
+
+            img = QPixmap(os.path.abspath(os.path.join(self.selected_file_path, self.selected_file_name)))
+            img = img.scaled(QSize(min(self.size().width(), 64), min(self.size().height(), 64)),
+                       Qt.KeepAspectRatioByExpanding, Qt.FastTransformation)
+
+            self.crop_image_viewer.resize(img.width(), img.height())
+            self.crop_image_viewer.setPixmap(img)
+            self.crop_image_viewer.show()
+        except Exception as e:
+            pass

@@ -28,11 +28,12 @@ class DefectDock:
         config = configparser.ConfigParser()
         config.read("config/path_info.cfg")
         origin_path = config["PATH_INFO"]["origin_path"]
-        result_path = config['PATH_INFO']['eval_result_path']
+        result_path = config['PATH_INFO']['crop_path']
 
         for path in str(filename).split('/')[-2:]:
             origin_path = osp.join(origin_path, path)
-            result_path = osp.join(result_path, path)
+            result_path = osp.join(result_path)
+
         if os.path.isfile(origin_path):
             self.defect.defect_macro_info(origin_path)
             self.defect.defect_micro_data(origin_path)
