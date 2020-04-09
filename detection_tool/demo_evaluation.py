@@ -1,5 +1,4 @@
 import numpy as np
-import configparser
 import argparse
 import math
 import time
@@ -14,27 +13,15 @@ from PyQt5.QtCore import QThread, pyqtSignal
 from matplotlib import pyplot as plt
 from tqdm import tqdm
 
+from idc_tool.config import get_info
+
 parser = argparse.ArgumentParser()
-parser.add_argument("-l", "--labeled_path", help="Path to your testing pcb_dataset.",  # 2020.02.14 add labeled path
-                    default='../data/default/labeled/')
-parser.add_argument("-d", "--result_path", help="Path to result.",
-                    default='../training/pcb/result/')
+parser.add_argument("-c", "--class_info", help="Class information.",
+                    default=get_info('class_info'))
+parser.add_argument("-p", "--path_info", help="Path information.",
+                    default=get_info('path_info'))
 
-# 2020.02.19
-class_config = configparser.ConfigParser()
-class_config.read("config/classes.cfg")
-class_split = (class_config['CLASSES']['trained_classes']).split(',')
-classes = class_split
-
-path_config = configparser.ConfigParser()
-path_config.read("config/path_info.cfg")
-_labeled_path = path_config['PATH_INFO']['labeled_path']
-_crop_path = path_config['PATH_INFO']['crop_path']
-_origin_path = path_config['PATH_INFO']['origin_path']
-_result_path = path_config['PATH_INFO']['eval_result_path']
-_result_path_total = path_config['PATH_INFO']['eval_result_path_total']
-_result_path_text = path_config['PATH_INFO']['eval_result_path_text']
-_model_path = path_config['PATH_INFO']['model_path']
+args = parser.parse_args()
 
 TIME_LIMIT = 100
 
@@ -47,13 +34,14 @@ class External(QThread):
         count = 0
         self.countChanged.emit(count)
 
-        model_path = os.path.abspath(_model_path)
-        crop_path = os.path.abspath(_crop_path)
-        origin_path = os.path.abspath(_origin_path)
-        labeled_path = os.path.abspath(_labeled_path)
-        result_path = os.path.abspath(_result_path)
-        result_path_text = os.path.abspath(_result_path_text)
-        result_path_total = os.path.abspath(_result_path_total)
+        classes = args.class_info.get('CLASSES', 'classes')
+        model_path = os.path.abspath(args.path_info.get('PATH_INFO', 'model_path'))
+        crop_path = os.path.abspath(args.path_info.get('PATH_INFO', 'crop_path'))
+        origin_path = os.path.abspath(args.path_info.get('PATH_INFO', 'origin_path'))
+        labeled_path = os.path.abspath(args.path_info.get('PATH_INFO', 'labeled_path'))
+        result_path = os.path.abspath(args.path_info.get('PATH_INFO', 'eval_result_path'))
+        result_path_text = os.path.abspath(args.path_info.get('PATH_INFO', 'eval_result_path_text'))
+        result_path_total = os.path.abspath(args.path_info.get('PATH_INFO', 'eval_result_path_total'))
 
         s = time.time()
         model = load_model(model_path)
@@ -65,7 +53,7 @@ class External(QThread):
         filenames = load_data.pop('filenames')
         filepaths = load_data.pop('filepaths')
         n_samples = load_data.pop('n_samples')
-        categories = classes
+        categories = classes.split(',')
 
         if len(inputdata.shape) < 4:
             inputdata = np.expand_dims(inputdata, 0)
@@ -75,7 +63,9 @@ class External(QThread):
         predict_idx = [np.argmax(pred) for pred in predict]
 
         origin_file = []
+        print(os.walk(origin_path))
         for (root, dirs, files) in os.walk(origin_path):
+
             if len(files) > 0:
                 for file_name in files:
                     origin_file.append(file_name)
@@ -91,7 +81,7 @@ class External(QThread):
                 defect_type = 'tmp'
 
             save_path = os.path.join(labeled_path, defect_type)
-            if os.path.exists(save_path) is False:
+            if not os.path.exists(save_path):
                 os.makedirs(save_path)
 
             cv2.imwrite(os.path.join(save_path, filename), cv2.imread(crop_file))
@@ -121,7 +111,7 @@ class External(QThread):
             count += 80 / num_images
             plt.xticks(range(len(categories)), categories, rotation=60, fontsize=8)
             ax1 = plt.subplot(num_rows, 2 * num_cols, 2 * i + 1)
-            plot_image(i, predict, predict_idx, test_image, filename)
+            plot_image(i, predict, predict_idx, test_image, filename, categories)
             ax2 = plt.subplot(num_rows, 2 * num_cols, 2 * i + 2)
             plot_value_array(i, predict, predict_idx)
 
@@ -181,7 +171,7 @@ class Actions(QDialog):
             self.close()
 
 
-def plot_image(i, predictions_array, true_label, img, filename):
+def plot_image(i, predictions_array, true_label, img, filename, categories):
     """
     Keyword arguments:
     :param i:  이미지 순서
@@ -203,15 +193,15 @@ def plot_image(i, predictions_array, true_label, img, filename):
     else:
         color = 'red'
 
-    plt.xlabel("{} {:2.0f}% ({})".format(classes[predicted_label],
+
+    plt.xlabel("{} {:2.0f}% ({})".format(categories[predicted_label],
                                          100 * np.max(predictions_array),
-                                         classes[true_label]),
-               color=color)
+                                         categories[true_label]), color=color)
 
 
 def plot_value_array(i, predictions_array, true_label):
     """
-      Keyword arguments:
+    Keyword arguments:
     :param i:  이미지 순서
     :param predictions_array:  추론 결과 배열
     :param true_label: 실제값
@@ -232,3 +222,4 @@ if __name__ == "__main__":
     window = Actions()
     sys.exit(app.exec_())
     # External().test()
+

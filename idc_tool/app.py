@@ -17,6 +17,7 @@ from . import utils
 from idc_tool import QT5
 from idc_tool.logger import logger
 from idc_tool.config import get_config
+from idc_tool.config import get_info
 from idc_tool.widgets import LabelDialog
 from idc_tool.widgets import LabelQListWidget
 from idc_tool.widgets import CanvasInit
@@ -39,15 +40,17 @@ class MainWindow(QtWidgets.QMainWindow):
         super(MainWindow, self).__init__()
         self.setWindowTitle(__appname__)
 
-        config = kwargs['config'] if 'config' in kwargs else None
+        config = kwargs['config'] if 'config' in kwargs else get_config()
+        class_info = kwargs['class_info'] if 'class_info' in kwargs else get_info('class_info')
+        path_info = kwargs['path_info'] if 'path_info' in kwargs else get_info('path_info')
         filename = kwargs['filename'] if 'filename' in kwargs else None
         output = kwargs['output'] if 'output' in kwargs else None
         output_file = kwargs['output_file'] if 'output_file' in kwargs else None
         output_dir = kwargs['output_dir'] if 'output_dir' in kwargs else None
 
-        if config is None:
-            config = get_config()
         self._config = config
+        self._class_info = class_info
+        self._path_info = path_info
 
         if filename is not None and osp.isdir(filename):
             self.importDirImages(filename, load=False)
@@ -474,13 +477,10 @@ class MainWindow(QtWidgets.QMainWindow):
             if self.file_dock.isEnabled() is True:
                 for index in range(self.file.fileListWidget.count()):
                     if self.file.fileListWidget.item(index).checkState() == Qt.Checked:
-                        checked_items.append(self.file.fileListWidget.item(index).text().replace('/', '\\'))
+                        checked_items.append(self.file.fileListWidget.item(index).text())
             else:
                 if self.single_analysis_file:
-                    checked_items.append(self.single_analysis_file.replace('/', '\\'))
-            filename = None
-            for index in range(len(checked_items)):
-                filename = checked_items[index]
+                    checked_items.append(self.single_analysis_file)
 
             script = ['python', '../detection_tool/demo_xor.py', '-i']
             script.extend(checked_items)
@@ -517,42 +517,43 @@ class MainWindow(QtWidgets.QMainWindow):
             else:
                 print("Defect Detection fail")
 
-            path_config = configparser.ConfigParser()
-            path_config.read("config/path_info.cfg")
-            result_path_total = path_config['PATH_INFO']['eval_result_path_total']
-            result_path_text = path_config['PATH_INFO']['eval_result_path_text']
-            labeled_path = path_config['PATH_INFO']['labeled_path']
+            try:
+                result_path_total = self._path_info.get('PATH_INFO', 'eval_result_path_total')
+                result_path_text = self._path_info.get('PATH_INFO', 'eval_result_path_text')
+                labeled_path = self._path_info.get('PATH_INFO', 'labeled_path')
 
-            pixmap = QPixmap(result_path_total)
-            pixmap = pixmap.scaled(QSize(min(self.size().width(), 384), min(self.size().height(), 384)),
-                                   Qt.KeepAspectRatioByExpanding, Qt.FastTransformation)
+                pixmap = QPixmap(result_path_total)
+                pixmap = pixmap.scaled(QSize(min(self.size().width(), 384), min(self.size().height(), 384)),
+                                       Qt.KeepAspectRatioByExpanding, Qt.FastTransformation)
 
-            self.inference.lb_result.resize(pixmap.width(), pixmap.height())
-            self.inference.lb_result.setPixmap(pixmap)
-            self.inference.lb_result.show()
+                self.inference.lb_result.resize(pixmap.width(), pixmap.height())
+                self.inference.lb_result.setPixmap(pixmap)
+                self.inference.lb_result.show()
 
-            result_value = open(result_path_text, mode='rt', encoding='utf-8').readline()
-            result_value = result_value.split('/')
-            self.inference.lb_result_value.clear()
-            self.inference.lb_result_value.insertPlainText("Number of PCB : {0} \n".format(result_value[0]))
-            self.inference.lb_result_value.insertPlainText("Number of Defects : {0} \n".format(result_value[1]))
-            # self.inference.lb_result_value.insertPlainText("Accuracy : {0} \n".format(result_value[2]))
+                result_value = open(result_path_text, mode='rt', encoding='utf-8').readline()
+                result_value = result_value.split('/')
+                self.inference.lb_result_value.clear()
+                self.inference.lb_result_value.insertPlainText("Number of PCB : {0} \n".format(result_value[0]))
+                self.inference.lb_result_value.insertPlainText("Number of Defects : {0} \n".format(result_value[1]))
+                # self.inference.lb_result_value.insertPlainText("Accuracy : {0} \n".format(result_value[2]))
 
-            classes = self.category.get_classes()
-            labeled_file_list = {}
-            for i in result_value[3:]:
-                file_path = os.path.abspath(os.path.join(labeled_path, classes[int(i)]))
-                for file in os.listdir(file_path):
-                    labeled_file_list.__setitem__(file, {'path': file_path, 'class': classes[int(i)]})
+                classes = self._class_info.get('CLASSES', 'classes').split(',')
+                labeled_file_list = {}
+                for i in result_value[3:]:
+                    file_path = os.path.abspath(os.path.join(labeled_path, classes[int(i)]))
+                    for file in os.listdir(file_path):
+                        labeled_file_list.__setitem__(file, {'path': file_path, 'class': classes[int(i)]})
 
-            nonlabel_path = os.path.abspath(os.path.join(labeled_path, 'tmp'))
-            if os.path.exists(nonlabel_path):
-                for file in os.listdir(nonlabel_path):
-                    labeled_file_list.__setitem__(file, {'path': nonlabel_path, 'class': 'None'})
+                nonlabel_path = os.path.abspath(os.path.join(labeled_path, 'tmp'))
+                if os.path.exists(nonlabel_path):
+                    for file in os.listdir(nonlabel_path):
+                        labeled_file_list.__setitem__(file, {'path': nonlabel_path, 'class': 'None'})
 
-            for file in labeled_file_list.keys():
-                self.category.crop_image_list.addItem(file)
-            self.category.labeled_file_list = labeled_file_list
+                for file in labeled_file_list.keys():
+                    self.category.crop_image_list.addItem(file)
+                self.category.labeled_file_list = labeled_file_list
+            except Exception as e:
+                print(e)
 
     def selectFile(self):
         if self._selectedAll == False:

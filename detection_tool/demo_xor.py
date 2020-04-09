@@ -1,10 +1,3 @@
-from detection_tool.transformation.image_function import Image
-
-from PyQt5.QtWidgets import QApplication, QDialog, QProgressBar
-from PyQt5.QtCore import QThread, pyqtSignal
-from tqdm import tqdm
-
-import configparser
 import argparse
 import shutil
 import time
@@ -12,24 +5,22 @@ import cv2
 import sys
 import os
 
-parser = argparse.ArgumentParser()
-parser.add_argument('-i', '--individual_path',
-                    help='Individual inspection progress',
-                    nargs='+',
-                    default=[])
-parser.add_argument("-d", "--defects",
-                    help="defect category.",
-                    default=['Missing_hole', 'Mouse_bite', 'Open_circuit', 'Short', 'Spur', 'Spurious_copper'])
-args = parser.parse_args()
+from PyQt5.QtWidgets import QApplication, QDialog, QProgressBar
+from PyQt5.QtCore import QThread, pyqtSignal
+from tqdm import tqdm
 
-config = configparser.ConfigParser()
-config.read("../idc_tool/config/path_info.cfg")
-_test_path = config["PATH_INFO"]["xor_test_path"]
-_normal_path = config["PATH_INFO"]["xor_normal_path"]
-_crop_path = config["PATH_INFO"]["crop_path"]
-_origin_path = config["PATH_INFO"]["origin_path"]
-_generate_path = config["PATH_INFO"]["generate_path"]
-_result_path = config["PATH_INFO"]["xor_result_path"]
+from detection_tool.transformation.image_function import Image
+from idc_tool.config import get_info
+
+parser = argparse.ArgumentParser()
+parser.add_argument('-i', '--individual_path', help='Individual inspection progress', nargs='+', default=[])
+parser.add_argument("-d", "--defects", help="defect category.",
+                    default=['Missing_hole', 'Mouse_bite', 'Open_circuit', 'Short', 'Spur', 'Spurious_copper'])
+parser.add_argument("-c", "--class_info", help="Class information.",
+                    default=get_info('class_info'))
+parser.add_argument("-p", "--path_info", help="Path information.",
+                    default=get_info('path_info'))
+args = parser.parse_args()
 
 TIME_LIMIT = 100
 
@@ -43,67 +34,68 @@ class External(QThread):
         self.countChanged.emit(count)
         s = time.time()
 
-        if os.path.exists(_crop_path):
-            shutil.rmtree(_crop_path)
-        if os.path.exists(_origin_path):
-            shutil.rmtree(_origin_path)
-        if os.path.exists(_result_path):
-            shutil.rmtree(_result_path)
+        crop_path = os.path.abspath(args.path_info.get('PATH_INFO', 'crop_path'))
+        origin_path = os.path.abspath(args.path_info.get('PATH_INFO', 'origin_path'))
+        normal_path = os.path.abspath(args.path_info.get('PATH_INFO', 'xor_normal_path'))
+        result_path = os.path.abspath(args.path_info.get('PATH_INFO', 'xor_result_path'))
+        test_path = os.path.abspath(args.path_info.get('PATH_INFO', 'xor_test_path'))
+
+        if os.path.exists(crop_path):
+            shutil.rmtree(crop_path)
+        if os.path.exists(origin_path):
+            shutil.rmtree(origin_path)
+        if os.path.exists(result_path):
+            shutil.rmtree(result_path)
 
         print('\n ******************' + 'Start Defect Inspection' + '******************')
-        # 2020.02.17
         classes = args.defects.split(',') if type(args.defects) == str else args.defects
         for defect in classes:
             count += 100 / len(classes)
             print('\n ----------------' + defect + '----------------')
-            # path
-            test_path = os.path.abspath(_test_path + defect)
-            # 2020.02.17
+            _test_path = os.path.abspath(os.path.join(test_path, defect))
+
             try:
-                files = os.listdir(test_path)
+                files = os.listdir(_test_path)
             except Exception as e:
                 files = []
 
-            dest_path = defect + '/'
-            if not os.path.exists(_result_path):
-                os.makedirs(_result_path)
-            if not os.path.exists(_origin_path):
-                os.makedirs(_origin_path)
-            if not os.path.exists(_crop_path):
-                os.makedirs(_crop_path)
-            if not os.path.exists(_generate_path):
-                os.mkdir(_generate_path)
-            # if not os.path.exists(_crop_path + defect):
-            #     os.mkdir(_crop_path + defect)
-            if not os.path.exists(_origin_path + defect):
-                os.mkdir(_origin_path + defect)
-            if not os.path.exists(_generate_path + defect):
-                os.mkdir(_generate_path + defect)
+            if not os.path.exists(crop_path):
+                os.makedirs(crop_path)
+            if not os.path.exists(origin_path):
+                os.makedirs(origin_path)
+            if not os.path.exists(result_path):
+                os.makedirs(result_path)
+            if not os.path.exists(os.path.abspath(os.path.join(origin_path, defect))):
+                os.mkdir(os.path.abspath(os.path.join(origin_path, defect)))
 
             # image Preprocess
             tot_sum = 0
-            for i in tqdm(range(len(files))):
-                if str(os.path.join(test_path, files[i])) in args.individual_path:
-                    tot_sum += i
-                    # Test image
-                    img_test = cv2.imread(os.path.join(test_path, files[i]))
-                    temp = files[i].split('_')[0]
-                    # Ref image
-                    img_ref = cv2.imread(_normal_path + temp + '.JPG')
-                    # Register
-                    transform_image = Image().registriation(img_test, img_ref)
-                    # XOR
-                    diff_image = Image().image_comparison(transform_image, img_ref)
-                    # Filter
-                    filtered_image = Image().image_filter(diff_image)
-                    # defect image
-                    _, _ = Image().image_defect(filtered_image, transform_image, size=32,
-                                                correction=20,
-                                                filename1=files[i].split('.')[0],
-                                                filename2=files[i],
-                                                crop_path=os.path.join(_crop_path),
-                                                origin_path=os.path.join(_origin_path, dest_path),
-                                                result_path=_result_path)
+            try:
+                for i in tqdm(range(len(files))):
+                    if str(os.path.join(_test_path, files[i])).replace('\\', '/') in args.individual_path:
+                        tot_sum += i
+                        # Test image
+                        img_test = cv2.imread(os.path.join(_test_path, files[i]))
+                        temp = files[i].split('_')[0]
+                        # Ref image
+                        img_ref = cv2.imread(os.path.join(normal_path, temp + '.JPG'))
+                        # Register
+                        transform_image = Image().registriation(img_test, img_ref)
+                        # XOR
+                        diff_image = Image().image_comparison(transform_image, img_ref)
+                        # Filter
+                        filtered_image = Image().image_filter(diff_image)
+                        # defect image
+                        _, _ = Image().image_defect(filtered_image, transform_image, size=32,
+                                                    correction=20,
+                                                    filename1=files[i].split('.')[0],
+                                                    filename2=files[i],
+                                                    crop_path=os.path.join(crop_path,),
+                                                    origin_path=os.path.join(origin_path, defect),
+                                                    result_path=result_path)
+            except Exception as e:
+                print(e)
+
             self.countChanged.emit(count)
             print('\n 검출 파일 수 : ' + str(tot_sum))
         print('\n ******************' + 'Defect Extraction Completed' + '*************************')

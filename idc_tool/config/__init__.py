@@ -1,6 +1,7 @@
 import os.path as osp
 import shutil
 import yaml
+import configparser
 
 from idc_tool.logger import logger
 
@@ -67,5 +68,17 @@ def get_config(config_from_args=None, config_file=None):
     # 3. command line argument
     if config_from_args is not None:
         update_dict(config, config_from_args, validate_item=validate_config_item)
+
+    return config
+
+
+def get_info(path):
+    if path is 'class_info':
+        path = osp.join(here, 'class_config.cfg')
+    if path is 'path_info':
+        path = osp.join(here, 'path_config.cfg')
+
+    config = configparser.ConfigParser()
+    config.read(path)
 
     return config

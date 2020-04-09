@@ -11,6 +11,7 @@ from idc_tool import __appname__
 from idc_tool import __version__
 from idc_tool.logger import logger
 from idc_tool.config import get_config
+from idc_tool.config import get_info
 from idc_tool.utils import newIcon
 from idc_tool.app import MainWindow
 

@@ -1,4 +1,3 @@
-import configparser
 import os
 import shutil
 
@@ -6,6 +5,8 @@ from qtpy import QtWidgets
 
 from PyQt5.QtCore import Qt, QSize
 from PyQt5.QtGui import QPixmap
+
+from idc_tool.config import get_info
 
 
 class CategoryDock(QtWidgets.QWidget):
@@ -109,29 +110,31 @@ class CategoryDock(QtWidgets.QWidget):
         self.category_dock.setMaximumHeight(360)
 
     def get_classes(self):
-        config = configparser.ConfigParser()
-        config.read("config/classes.cfg")
-        cls = (config['CLASSES']['classes']).split(',')
+        config = get_info('class_info')
+        classes = config.get('CLASSES', 'classes').split(',')
 
-        return cls
+        return classes
 
     def add_cless(self):
         try:
-            config = configparser.ConfigParser()
-            config.read("config/classes.cfg")
-            cls = (config['CLASSES']['classes']).split(',')
+            classes = self.get_classes()
             new_class = self.catLineEditWidget.text()
+
             if len(new_class) > 0:
                 self.catListWidget.addItem(new_class)
-                cls.append(new_class)
+                classes.append(new_class)
+
                 tmp = ''
-                for i in cls:
+                for i in classes:
                     tmp = tmp + i + ','
                 added_classes = tmp[:-1]
+                config = get_info('class_info')
                 config.set('CLASSES', 'classes', added_classes)
-                with open("config/classes.cfg", 'w') as configfile:
+
+                with open("config/class_config.cfg", 'w') as configfile:
                     config.write(configfile)
                     configfile.close()
+
                 self.classes = self.get_classes()
 
                 QtWidgets.QMessageBox.about(self, "message", "Add Category : %s" % new_class)
@@ -140,20 +143,22 @@ class CategoryDock(QtWidgets.QWidget):
 
     def delete_class(self):
         try:
-            config = configparser.ConfigParser()
-            config.read("config/classes.cfg")
-            cls = (config['CLASSES']['classes']).split(',')
+            classes = self.get_classes()
             del_class = self.catListWidget.currentText()
             self.catListWidget.removeItem(self.catListWidget.currentIndex())
-            cls.remove(del_class)
+            classes.remove(del_class)
+
             tmp = ''
-            for i in cls:
+            for i in classes:
                 tmp = tmp + i + ','
             deleted_classes = tmp[:-1]
+            config = get_info('class_info')
             config.set('CLASSES', 'classes', deleted_classes)
-            with open("config/classes.cfg", 'w') as configfile:
+
+            with open("config/class_config.cfg", 'w') as configfile:
                 config.write(configfile)
                 configfile.close()
+
             self.classes = self.get_classes()
 
             QtWidgets.QMessageBox.about(self, "message", "Delete Category : %s" % del_class)
@@ -162,9 +167,8 @@ class CategoryDock(QtWidgets.QWidget):
 
     def category_save(self):
         try:
-            config = configparser.ConfigParser()
-            config.read("config/path_info.cfg")
-            labeled_path = (config['PATH_INFO']['labeled_path'])
+            config = get_info('path_info')
+            labeled_path = config.get('PATH_INFO', 'labeled_path')
 
             file_name = self.selected_file_name
             ch_category = self.catListWidget.currentText()

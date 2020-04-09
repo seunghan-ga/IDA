@@ -1,5 +1,6 @@
 import numpy as np
 import cv2
+import os
 import imutils
 import scipy.fftpack
 
@@ -132,7 +133,7 @@ class Image:
         cnts = cv2.findContours(filter7, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         cnts = imutils.grab_contours(cnts)
         d = []
-
+        print(cnts)
         i = 0
         for c in cnts:
             (x, y, w, h) = cv2.boundingRect(c)
@@ -143,12 +144,13 @@ class Image:
                 temp_img = img_temp[(y - correction):(y + h + correction), (x - correction):(x + w + correction), :]
                 temp_resized = cv2.resize(temp_img, (size, size))
                 d.append(temp_resized)
-                cv2.imwrite(crop_path + filename1 + '_' + str(i) + '.jpg', temp_resized)
+                crop_file_name = filename1 + '_' + str(i) + '.jpg'
+                cv2.imwrite(os.path.join(crop_path, crop_file_name), temp_resized)
                 i += 1
                 # save
                 cv2.rectangle(img_A, (x, y), (x + w, y + h), (0, 0, 255), 2)
 
-        cv2.imwrite(origin_path + filename2, img_A)
+        cv2.imwrite(os.path.join(origin_path, filename2), img_A)
 
         return img_A, d
 

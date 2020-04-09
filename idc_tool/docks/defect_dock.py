@@ -26,7 +26,7 @@ class DefectDock:
     def defect_info(self, filename):
         """결함 매크로 및 마이크로 정보를 시각화하는 열린 탭"""
         config = configparser.ConfigParser()
-        config.read("config/path_info.cfg")
+        config.read("config/path_config.cfg")
         origin_path = config["PATH_INFO"]["origin_path"]
         result_path = config['PATH_INFO']['crop_path']
 
