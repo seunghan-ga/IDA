@@ -13,14 +13,9 @@ from PyQt5.QtCore import QThread, pyqtSignal
 from matplotlib import pyplot as plt
 from tqdm import tqdm
 
-from idc_tool.config import get_info
-
 parser = argparse.ArgumentParser()
-parser.add_argument("-c", "--class_info", help="Class information.",
-                    default=get_info('class_info'))
-parser.add_argument("-p", "--path_info", help="Path information.",
-                    default=get_info('path_info'))
-
+parser.add_argument("-c", "--class_info", help="Class information.")
+parser.add_argument("-p", "--path_info", help="Path information.")
 args = parser.parse_args()
 
 TIME_LIMIT = 100
@@ -34,14 +29,16 @@ class External(QThread):
         count = 0
         self.countChanged.emit(count)
 
-        classes = args.class_info.get('CLASSES', 'classes')
-        model_path = os.path.abspath(args.path_info.get('PATH_INFO', 'model_path'))
-        crop_path = os.path.abspath(args.path_info.get('PATH_INFO', 'crop_path'))
-        origin_path = os.path.abspath(args.path_info.get('PATH_INFO', 'origin_path'))
-        labeled_path = os.path.abspath(args.path_info.get('PATH_INFO', 'labeled_path'))
-        result_path = os.path.abspath(args.path_info.get('PATH_INFO', 'eval_result_path'))
-        result_path_text = os.path.abspath(args.path_info.get('PATH_INFO', 'eval_result_path_text'))
-        result_path_total = os.path.abspath(args.path_info.get('PATH_INFO', 'eval_result_path_total'))
+        path_info = eval(args.path_info)
+        class_info = eval(args.class_info)
+
+        model_path = os.path.abspath(path_info['model_path'])
+        crop_path = os.path.abspath(path_info['crop_path'])
+        origin_path = os.path.abspath(path_info['origin_path'])
+        labeled_path = os.path.abspath(path_info['labeled_path'])
+        result_path = os.path.abspath(path_info['eval_result_path'])
+        result_path_text = os.path.abspath(path_info['eval_result_path_text'])
+        result_path_total = os.path.abspath(path_info['eval_result_path_total'])
 
         s = time.time()
         model = load_model(model_path)
@@ -53,7 +50,8 @@ class External(QThread):
         filenames = load_data.pop('filenames')
         filepaths = load_data.pop('filepaths')
         n_samples = load_data.pop('n_samples')
-        categories = classes.split(',')
+        categories = list(class_info.values())
+        print(categories)
 
         if len(inputdata.shape) < 4:
             inputdata = np.expand_dims(inputdata, 0)
@@ -76,7 +74,7 @@ class External(QThread):
             crop_file = filepaths[i]
 
             if predict[i][predict_idx[i]] >= .95:
-                defect_type = categories[predict_idx[i]]
+                defect_type = class_info[predict_idx[i]]
             else:
                 defect_type = 'tmp'
 

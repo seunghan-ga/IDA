@@ -1,6 +1,5 @@
 import os
 import os.path as osp
-import configparser
 
 from qtpy import QtWidgets
 
@@ -10,6 +9,7 @@ from idc_tool.widgets import DefectWindow
 
 class DefectDock:
     def __init__(self, **kwargs):
+        self.path_info = kwargs['path_info']
         self.defect = None
         self.defect_widget = None
         self.defect_dock = None
@@ -25,10 +25,8 @@ class DefectDock:
 
     def defect_info(self, filename):
         """결함 매크로 및 마이크로 정보를 시각화하는 열린 탭"""
-        config = configparser.ConfigParser()
-        config.read("config/path_config.cfg")
-        origin_path = config["PATH_INFO"]["origin_path"]
-        result_path = config['PATH_INFO']['crop_path']
+        origin_path = self.path_info["origin_path"]
+        result_path = self.path_info['crop_path']
 
         for path in str(filename).split('/')[-2:]:
             origin_path = osp.join(origin_path, path)

@@ -1,12 +1,13 @@
 import os
 import shutil
+import yaml
 
 from qtpy import QtWidgets
 
 from PyQt5.QtCore import Qt, QSize
 from PyQt5.QtGui import QPixmap
 
-from idc_tool.config import get_info
+from idc_tool.config import get_config
 
 
 class CategoryDock(QtWidgets.QWidget):
@@ -110,30 +111,23 @@ class CategoryDock(QtWidgets.QWidget):
         self.category_dock.setMaximumHeight(360)
 
     def get_classes(self):
-        config = get_info('class_info')
-        classes = config.get('CLASSES', 'classes').split(',')
+        config = get_config()
+        classes = config['classes']
 
-        return classes
+        return list(classes.values())
 
     def add_cless(self):
         try:
-            classes = self.get_classes()
             new_class = self.catLineEditWidget.text()
 
             if len(new_class) > 0:
                 self.catListWidget.addItem(new_class)
-                classes.append(new_class)
 
-                tmp = ''
-                for i in classes:
-                    tmp = tmp + i + ','
-                added_classes = tmp[:-1]
-                config = get_info('class_info')
-                config.set('CLASSES', 'classes', added_classes)
+                config = get_config()
+                config['classes'][len(self.classes)] = new_class
 
-                with open("config/class_config.cfg", 'w') as configfile:
-                    config.write(configfile)
-                    configfile.close()
+                with open("config/default_config.yaml", 'w') as f:
+                    yaml.dump(config, f)
 
                 self.classes = self.get_classes()
 
@@ -143,21 +137,16 @@ class CategoryDock(QtWidgets.QWidget):
 
     def delete_class(self):
         try:
-            classes = self.get_classes()
             del_class = self.catListWidget.currentText()
+
             self.catListWidget.removeItem(self.catListWidget.currentIndex())
-            classes.remove(del_class)
 
-            tmp = ''
-            for i in classes:
-                tmp = tmp + i + ','
-            deleted_classes = tmp[:-1]
-            config = get_info('class_info')
-            config.set('CLASSES', 'classes', deleted_classes)
+            config = get_config()
+            del_class_key = [k for k, v in config['classes'].items() if v == del_class]
+            config['classes'].__delitem__(del_class_key[0])
 
-            with open("config/class_config.cfg", 'w') as configfile:
-                config.write(configfile)
-                configfile.close()
+            with open("config/default_config.yaml", 'w') as f:
+                yaml.dump(config, f)
 
             self.classes = self.get_classes()
 
@@ -167,8 +156,8 @@ class CategoryDock(QtWidgets.QWidget):
 
     def category_save(self):
         try:
-            config = get_info('path_info')
-            labeled_path = config.get('PATH_INFO', 'labeled_path')
+            config = get_config()
+            labeled_path = config['paths']['labeled_path']
 
             file_name = self.selected_file_name
             ch_category = self.catListWidget.currentText()
@@ -186,7 +175,7 @@ class CategoryDock(QtWidgets.QWidget):
             QtWidgets.QMessageBox.about(self, "message", "Move Category\n(%s -> %s)"
                                         % (self.selected_file_type, ch_category))
         except Exception as e:
-            pass
+            print(e)
 
     def select_crop_image(self):
         try:

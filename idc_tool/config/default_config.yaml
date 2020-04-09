@@ -1,57 +1,74 @@
-# default
-logger_level: info
-labels: null
-validate_label: null
-sort_labels: true
-label_flags: null
-flags: null
-file_search: null
-keep_prev: false
-
-# main
-inference_dock:
-  show: true
-  closable: true
-  movable: true
-  floatable: true
-property_dock:
-  show: false
-  closable: true
-  movable: true
-  floatable: true
+classes:
+  0: Missing_hole
+  1: Mouse_bite
+  2: Open_circuit
+  3: Short
+  4: Spur
+  5: Spurious_copper
+  6: test
 defect_dock:
+  closable: true
+  floatable: true
+  movable: true
   show: false
-  closable: true
-  movable: true
-  floatable: true
+epsilon: 10.0
 file_dock:
-  show: true
   closable: true
-  movable: true
   floatable: true
-
-# label_dialog
-show_label_text_field: true
-label_completion: startswith
+  movable: true
+  show: true
+file_search: null
 fit_to_content:
   column: true
   row: false
-epsilon: 10.0
+flags: null
+inference_dock:
+  closable: true
+  floatable: true
+  movable: true
+  show: true
+keep_prev: false
+label_completion: startswith
+label_flags: null
+labels: null
+logger_level: info
+paths:
+  crop_path: ../data/xor/result/crop/
+  eval_result_path: ../data/evaluation/result/
+  eval_result_path_text: ../data/evaluation/result/result1220.txt
+  eval_result_path_total: ../data/evaluation/result/result1220.png
+  generate_path: ../data/default/generate/
+  labeled_path: ../data/default/labeled/
+  model_path: ../data/models/pcb_72-0.0387_VGG19.hdf5
+  origin_path: ../data/xor/result/reference/
+  xor_normal_path: ../data/xor/normal/
+  xor_result_path: ../data/xor/result/
+  xor_test_path: ../data/xor/test/
+property_dock:
+  closable: true
+  floatable: true
+  movable: true
+  show: false
 shortcuts:
+  analysis: Ctrl+S
   close: Ctrl+W
+  fit_width: Ctrl+Shift+F
+  fit_window: Ctrl+F
+  left_rotate: Ctrl+Shift+L
   open: Ctrl+O
   open_dir: Ctrl+U
+  open_next: D
+  open_prev: A
   quit: Ctrl+Q
-  analysis: Ctrl+S
+  right_rotate: Ctrl+Shift+R
   save_as: Ctrl+Shift+S
   save_to: null
   select_all_file: Ctrl+A
-  open_next: D
-  open_prev: A
-  zoom_in: [Ctrl++, Ctrl+=]
+  zoom_in:
+  - Ctrl++
+  - Ctrl+=
   zoom_out: Ctrl+-
   zoom_to_original: Ctrl+0
-  left_rotate: Ctrl+Shift+L
-  right_rotate: Ctrl+Shift+R
-  fit_window: Ctrl+F
-  fit_width: Ctrl+Shift+F
+show_label_text_field: true
+sort_labels: true
+validate_label: null

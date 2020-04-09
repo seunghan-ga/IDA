@@ -2,7 +2,6 @@ import functools
 import os
 import os.path as osp
 import subprocess
-import configparser
 
 from qtpy import QtWidgets
 from qtpy import QtGui
@@ -41,16 +40,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setWindowTitle(__appname__)
 
         config = kwargs['config'] if 'config' in kwargs else get_config()
-        class_info = kwargs['class_info'] if 'class_info' in kwargs else get_info('class_info')
-        path_info = kwargs['path_info'] if 'path_info' in kwargs else get_info('path_info')
         filename = kwargs['filename'] if 'filename' in kwargs else None
         output = kwargs['output'] if 'output' in kwargs else None
         output_file = kwargs['output_file'] if 'output_file' in kwargs else None
         output_dir = kwargs['output_dir'] if 'output_dir' in kwargs else None
 
         self._config = config
-        self._class_info = class_info
-        self._path_info = path_info
 
         if filename is not None and osp.isdir(filename):
             self.importDirImages(filename, load=False)
@@ -91,7 +86,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.inference_dock = self.inference.inference_dock
         self.property = PropertyDock(config=self._config)
         self.property_dock = self.property.property_dock
-        self.defect = DefectDock()
+        self.defect = DefectDock(path_info=self._config['paths'])
         self.defect_dock = self.defect.defect_dock
         self.file = FileDock(parent=self)
         self.file_dock = self.file.file_dock
@@ -275,15 +270,15 @@ class MainWindow(QtWidgets.QMainWindow):
 
         if filename is None:
             filename = self.settings.value('filename', '')
-        filename = str(filename)
 
+        filename = str(filename)
         if not QtCore.QFile.exists(filename):
             self.errorMessage('Error opening file', 'No such file: <b>%s</b>' % filename)
             return False
 
         self.status("Loading %s..." % osp.basename(str(filename)))
-        label_file = osp.splitext(filename)[0] + '.json'
 
+        label_file = osp.splitext(filename)[0] + '.json'
         if self.output_dir:
             label_file_without_path = osp.basename(label_file)
             label_file = osp.join(self.output_dir, label_file_without_path)
@@ -482,13 +477,22 @@ class MainWindow(QtWidgets.QMainWindow):
                 if self.single_analysis_file:
                     checked_items.append(self.single_analysis_file)
 
-            script = ['python', '../detection_tool/demo_xor.py', '-i']
+            script = ['python', '../detection_tool/demo_xor.py']
+            script.append('-i')
             script.extend(checked_items)
+            script.append('-c')
+            script.append(str(self._config['classes']))
+            script.append('-p')
+            script.append(str(self._config['paths']))
             detect_result = subprocess.run(script, capture_output=True)
             print(detect_result)  # xor 2020.02.13
 
             if detect_result.returncode == 0:
                 script = ['python', '../detection_tool/demo_evaluation.py']
+                script.append('-c')
+                script.append(str(self._config['classes']))
+                script.append('-p')
+                script.append(str(self._config['paths']))
                 classification_result = subprocess.run(script, capture_output=True)
                 print(classification_result)  # xor 2020.02.13
 
@@ -518,9 +522,9 @@ class MainWindow(QtWidgets.QMainWindow):
                 print("Defect Detection fail")
 
             try:
-                result_path_total = self._path_info.get('PATH_INFO', 'eval_result_path_total')
-                result_path_text = self._path_info.get('PATH_INFO', 'eval_result_path_text')
-                labeled_path = self._path_info.get('PATH_INFO', 'labeled_path')
+                result_path_total = self._config['paths']['eval_result_path_total']
+                result_path_text = self._config['paths']['eval_result_path_text']
+                labeled_path = self._config['paths']['labeled_path']
 
                 pixmap = QPixmap(result_path_total)
                 pixmap = pixmap.scaled(QSize(min(self.size().width(), 384), min(self.size().height(), 384)),
@@ -537,7 +541,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.inference.lb_result_value.insertPlainText("Number of Defects : {0} \n".format(result_value[1]))
                 # self.inference.lb_result_value.insertPlainText("Accuracy : {0} \n".format(result_value[2]))
 
-                classes = self._class_info.get('CLASSES', 'classes').split(',')
+                classes = self._config['classes']
                 labeled_file_list = {}
                 for i in result_value[3:]:
                     file_path = os.path.abspath(os.path.join(labeled_path, classes[int(i)]))

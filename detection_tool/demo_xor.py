@@ -10,16 +10,11 @@ from PyQt5.QtCore import QThread, pyqtSignal
 from tqdm import tqdm
 
 from detection_tool.transformation.image_function import Image
-from idc_tool.config import get_info
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-i', '--individual_path', help='Individual inspection progress', nargs='+', default=[])
-parser.add_argument("-d", "--defects", help="defect category.",
-                    default=['Missing_hole', 'Mouse_bite', 'Open_circuit', 'Short', 'Spur', 'Spurious_copper'])
-parser.add_argument("-c", "--class_info", help="Class information.",
-                    default=get_info('class_info'))
-parser.add_argument("-p", "--path_info", help="Path information.",
-                    default=get_info('path_info'))
+parser.add_argument("-c", "--class_info", help="Class information.")
+parser.add_argument("-p", "--path_info", help="Path information.")
 args = parser.parse_args()
 
 TIME_LIMIT = 100
@@ -34,11 +29,14 @@ class External(QThread):
         self.countChanged.emit(count)
         s = time.time()
 
-        crop_path = os.path.abspath(args.path_info.get('PATH_INFO', 'crop_path'))
-        origin_path = os.path.abspath(args.path_info.get('PATH_INFO', 'origin_path'))
-        normal_path = os.path.abspath(args.path_info.get('PATH_INFO', 'xor_normal_path'))
-        result_path = os.path.abspath(args.path_info.get('PATH_INFO', 'xor_result_path'))
-        test_path = os.path.abspath(args.path_info.get('PATH_INFO', 'xor_test_path'))
+        path_info = eval(args.path_info)
+        class_info = eval(args.class_info)
+
+        crop_path = os.path.abspath(path_info['crop_path'])
+        origin_path = os.path.abspath(path_info['origin_path'])
+        normal_path = os.path.abspath(path_info['xor_normal_path'])
+        result_path = os.path.abspath(path_info['xor_result_path'])
+        test_path = os.path.abspath(path_info['xor_test_path'])
 
         if os.path.exists(crop_path):
             shutil.rmtree(crop_path)
@@ -48,7 +46,7 @@ class External(QThread):
             shutil.rmtree(result_path)
 
         print('\n ******************' + 'Start Defect Inspection' + '******************')
-        classes = args.defects.split(',') if type(args.defects) == str else args.defects
+        classes = class_info.values()
         for defect in classes:
             count += 100 / len(classes)
             print('\n ----------------' + defect + '----------------')
