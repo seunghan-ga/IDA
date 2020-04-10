@@ -13,10 +13,14 @@ from PyQt5.QtCore import QThread, pyqtSignal
 from matplotlib import pyplot as plt
 from tqdm import tqdm
 
+from detection_tool import siamese
+
 parser = argparse.ArgumentParser()
+parser.add_argument("-m", "--model_type", help="Pre-trained Model type.", default='default')
 parser.add_argument("-c", "--class_info", help="Class information.")
 parser.add_argument("-p", "--path_info", help="Path information.")
 args = parser.parse_args()
+
 
 TIME_LIMIT = 100
 
@@ -32,7 +36,8 @@ class External(QThread):
         path_info = eval(args.path_info)
         class_info = eval(args.class_info)
 
-        model_path = os.path.abspath(path_info['model_path'])
+        model_type = args.model_type
+        model_base_path = os.path.abspath(path_info['model_base_path'])
         crop_path = os.path.abspath(path_info['crop_path'])
         origin_path = os.path.abspath(path_info['origin_path'])
         labeled_path = os.path.abspath(path_info['labeled_path'])
@@ -41,8 +46,15 @@ class External(QThread):
         result_path_total = os.path.abspath(path_info['eval_result_path_total'])
 
         s = time.time()
-        model = load_model(model_path)
+
+        model = None
+        if model_type == 'default':
+            model = load_model(os.path.join(model_base_path, 'pcb_72-0.0387_VGG19.hdf5'))
+        if model_type == 'siamese':
+            model = siamese.build_network(shape=(32, 32, 3))
+            model.load_weights(os.path.join(model_base_path, 'one_way_model.h5'))
         model.summary()
+
         count = 10
 
         load_data = self.load_data(crop_path)
@@ -51,32 +63,51 @@ class External(QThread):
         filepaths = load_data.pop('filepaths')
         n_samples = load_data.pop('n_samples')
         categories = list(class_info.values())
-        print(categories)
 
         if len(inputdata.shape) < 4:
             inputdata = np.expand_dims(inputdata, 0)
 
+        x_support, y_support, cat_support = siamese.load_data(os.path.abspath(path_info['siamese_support_path']))
+        indices_support = siamese.create_indices(np.array(y_support), len(cat_support))
+
         print('\n ========== Prediction task. ===========')
-        predict = model.predict(inputdata)
-        predict_idx = [np.argmax(pred) for pred in predict]
+        predict = None
+        predict_idx = None
+        if model_type == 'default':
+            predict = model.predict(inputdata)
+            predict_idx = [np.argmax(pred) for pred in predict]
+        if model_type == 'siamese':
+            predict = []
+            for i in range(n_samples):
+                query = inputdata[i]
+                pred = siamese.predict(model, query, x_support, indices_support, cat_support)
+                predict.append(pred)
+            predict_idx = [int(np.argmin(pred)) for pred in predict]
 
         origin_file = []
-        print(os.walk(origin_path))
         for (root, dirs, files) in os.walk(origin_path):
-
             if len(files) > 0:
                 for file_name in files:
                     origin_file.append(file_name)
 
         print('\n ========== Auto labelling task. ===========')
+
         for i in range(n_samples):
             filename = filenames[i]
             crop_file = filepaths[i]
 
-            if predict[i][predict_idx[i]] >= .95:
-                defect_type = class_info[predict_idx[i]]
-            else:
-                defect_type = 'tmp'
+            defect_type = None
+            if model_type == 'default':
+                if predict[i][predict_idx[i]] >= .95:
+                    defect_type = class_info[predict_idx[i]]
+                else:
+                    defect_type = 'None'
+            if model_type == 'siamese':
+                if 1 - predict[i][predict_idx[i]] >= .92:
+                    defect_type = class_info[predict_idx[i]]
+                else:
+                    defect_type = 'None'
+                    predict_idx[i] = -1
 
             save_path = os.path.join(labeled_path, defect_type)
             if not os.path.exists(save_path):
@@ -109,9 +140,9 @@ class External(QThread):
             count += 80 / num_images
             plt.xticks(range(len(categories)), categories, rotation=60, fontsize=8)
             ax1 = plt.subplot(num_rows, 2 * num_cols, 2 * i + 1)
-            plot_image(i, predict, predict_idx, test_image, filename, categories)
+            plot_image(i, predict, predict_idx, test_image, filename, categories, model_type)
             ax2 = plt.subplot(num_rows, 2 * num_cols, 2 * i + 2)
-            plot_value_array(i, predict, predict_idx)
+            plot_value_array(i, predict, predict_idx, categories, model_type)
 
             if not os.path.exists(result_path):
                 os.makedirs(result_path)
@@ -169,7 +200,7 @@ class Actions(QDialog):
             self.close()
 
 
-def plot_image(i, predictions_array, true_label, img, filename, categories):
+def plot_image(i, predictions_array, true_label, img, filename, categories, model_type):
     """
     Keyword arguments:
     :param i:  이미지 순서
@@ -179,45 +210,58 @@ def plot_image(i, predictions_array, true_label, img, filename, categories):
     :return:
     """
     predictions_array, true_label, img = predictions_array[i], true_label[i], img[i]
+
+    predicted_label = None
+    if model_type == 'default':
+        predicted_label = np.argmax(predictions_array)
+    if model_type == 'siamese':
+        predicted_label = np.argmin(predictions_array)
+
     plt.grid(True)
     plt.title(filename, fontsize=13)
     plt.xticks([])
     plt.yticks([])
-
     plt.imshow(img, cmap=plt.cm.binary)
-    predicted_label = np.argmax(predictions_array)
-    if predicted_label == true_label:
-        color = 'blue'
-    else:
-        color = 'red'
+
+    color = 'blue' if predicted_label == true_label else 'red'
+
+    if model_type == 'default':
+        plt.xlabel("{} {:2.0f}% ({})".format('', 100 * np.max(predictions_array),
+                                             categories[predicted_label + 1]), color=color)
+    if model_type == 'siamese':
+        plt.xlabel("{} {:2.0f}% ({})".format('', 100 * (1 - np.min(predictions_array)),
+                                             categories[predicted_label + 1]), color=color)
 
 
-    plt.xlabel("{} {:2.0f}% ({})".format(categories[predicted_label],
-                                         100 * np.max(predictions_array),
-                                         categories[true_label]), color=color)
-
-
-def plot_value_array(i, predictions_array, true_label):
+def plot_value_array(i, predictions_array, true_labels, categories, model_type):
     """
     Keyword arguments:
     :param i:  이미지 순서
     :param predictions_array:  추론 결과 배열
     :param true_label: 실제값
     """
-    predictions_array, true_label = predictions_array[i], true_label[i]
+    predictions_array, true_label = predictions_array[i], true_labels[i]
+
     plt.grid(False)
     plt.xticks([])
     plt.yticks([])
-    thisplot = plt.bar(range(6), predictions_array, color="#777777")
-    plt.ylim([0, 1])
-    predicted_label = np.argmax(predictions_array)
-    thisplot[predicted_label].set_color('red')
-    thisplot[true_label].set_color('blue')
+
+    y_value = None
+    if model_type == 'default':
+        y_value = [np.abs(100 * i) for i in predictions_array]
+    if model_type == 'siamese':
+        y_value = [np.abs(100 * (1 - i)) for i in predictions_array]
+
+    if true_label == -1:
+        y_value.insert(0, 100)
+    else:
+        y_value.insert(0, 0)
+
+    thisplot = plt.bar(range(len(categories)), y_value, color="#777777")
+    thisplot[true_label + 1].set_color('blue')
 
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = Actions()
     sys.exit(app.exec_())
-    # External().test()
-

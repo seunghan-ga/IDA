@@ -70,15 +70,3 @@ def get_config(config_from_args=None, config_file=None):
         update_dict(config, config_from_args, validate_item=validate_config_item)
 
     return config
-
-
-def get_info(path):
-    if path is 'class_info':
-        path = osp.join(here, 'class_config.cfg')
-    if path is 'path_info':
-        path = osp.join(here, 'path_config.cfg')
-
-    config = configparser.ConfigParser()
-    config.read(path)
-
-    return config

@@ -9,9 +9,9 @@ class DefectWindow(QWidget):
     """
     Main window controller
     Attributes:
-        model         reference to an object of class MyModel (the model)
-        viewer        reference to an object of class MyImageView (main image)
-        viewer_list   reference to an object of class ImageFileList (list of images)
+        model         dataset to an object of class MyModel (the model)
+        viewer        dataset to an object of class MyImageView (main image)
+        viewer_list   dataset to an object of class ImageFileList (list of images)
         ...some graphical elements
     """
     def __init__(self, model):
@@ -125,14 +125,14 @@ class ImageView(QLabel):
     """
     Custom Widget to show image.
     Attributes:
-        parent         reference to parent (Main Window)
-        model          reference to an object of class Extract (the model)
-        viewer_list    reference to an object of class ImageFileList (list of images)
+        parent         dataset to parent (Main Window)
+        model          dataset to an object of class Extract (the model)
+        viewer_list    dataset to an object of class ImageFileList (list of images)
         rotation       value of rotation
         rotate         bool
     """
     def __init__(self, parent):
-        """Set several parameters and reference to parent"""
+        """Set several parameters and dataset to parent"""
         super(ImageView, self).__init__(parent)
         self.parent = parent
         self.setAlignment(Qt.AlignCenter)
@@ -142,12 +142,12 @@ class ImageView(QLabel):
         self.rotate = False
 
     def set_model(self, model):
-        """Set the reference to the model and update the view"""
+        """Set the dataset to the model and update the view"""
         self.model = model
         self.update_view()
 
     def set_viewer_list(self, viewer_list):
-        """ Set the reference to list of images"""
+        """ Set the dataset to list of images"""
         self.viewer_list = viewer_list
 
     def update_view(self):
@@ -224,12 +224,12 @@ class ImageFileList(QListWidget):
     """
     Custom Widget to list of images.
     Attributes:
-        parent         reference to parent (Main Window)
-        model          reference to an object of class Extract (the model)
-        viewer         reference to an object of class ImageView (main image)
+        parent         dataset to parent (Main Window)
+        model          dataset to an object of class Extract (the model)
+        viewer         dataset to an object of class ImageView (main image)
     """
     def __init__(self, model, viewer, parent=None):
-        """Set several parameters and reference to parent, model and viewer"""
+        """Set several parameters and dataset to parent, model and viewer"""
         QListWidget.__init__(self, parent)
         self.setIconSize(QSize(100, 100))
         self.itemDoubleClicked.connect(self.upload_image)

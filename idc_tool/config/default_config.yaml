@@ -1,11 +1,11 @@
 classes:
+  -1: None
   0: Missing_hole
   1: Mouse_bite
   2: Open_circuit
   3: Short
   4: Spur
   5: Spurious_copper
-  6: test
 defect_dock:
   closable: true
   floatable: true
@@ -27,6 +27,11 @@ inference_dock:
   floatable: true
   movable: true
   show: true
+category_dock:
+  closable: true
+  floatable: true
+  movable: true
+  show: true
 keep_prev: false
 label_completion: startswith
 label_flags: null
@@ -40,7 +45,9 @@ paths:
   generate_path: ../data/default/generate/
   labeled_path: ../data/default/labeled/
   model_path: ../data/models/pcb_72-0.0387_VGG19.hdf5
-  origin_path: ../data/xor/result/reference/
+  model_base_path: ../data/models/
+  siamese_support_path: ../data/evaluation/dataset/support_set/
+  origin_path: ../data/xor/result/dataset/
   xor_normal_path: ../data/xor/normal/
   xor_result_path: ../data/xor/result/
   xor_test_path: ../data/xor/test/
@@ -72,3 +79,4 @@ shortcuts:
 show_label_text_field: true
 sort_labels: true
 validate_label: null
+model_type: default

@@ -9,14 +9,14 @@ class ImageView(QLabel):
 	"""
 	Custom Widget to show image.
 	Attributes:
-		parent         reference to parent (Main Window)
-		model          reference to an object of class Extract (the model)
-		viewer_list    reference to an object of class ImageFileList (list of images)
+		parent         dataset to parent (Main Window)
+		model          dataset to an object of class Extract (the model)
+		viewer_list    dataset to an object of class ImageFileList (list of images)
 		rotation       value of rotation
 		rotate         bool
 	"""
 	def __init__(self, parent):
-		"""Set several parameters and reference to parent"""
+		"""Set several parameters and dataset to parent"""
 		super(ImageView, self).__init__(parent)
 		self.parent = parent
 		self.setAlignment(Qt.AlignCenter)
@@ -26,12 +26,12 @@ class ImageView(QLabel):
 		self.rotate = False
 
 	def set_model(self, model):
-		"""Set the reference to the model and update the view"""
+		"""Set the dataset to the model and update the view"""
 		self.model = model
 		self.update_view()
 
 	def set_viewer_list(self, viewer_list):
-		"""Set the reference to list of images"""
+		"""Set the dataset to list of images"""
 		self.viewer_list = viewer_list
 
 	def update_view(self):
@@ -108,10 +108,10 @@ class CustomTab(QWidget):
 	"""
 	Custom Widget to show info on image.
 	Attributes:
-		model          reference to an object of class Extract (the model)
+		model          dataset to an object of class Extract (the model)
 	"""
 	def __init__(self, parent, model):
-		"""Set several parameters and reference to parent"""
+		"""Set several parameters and dataset to parent"""
 		super(CustomTab, self).__init__(parent)
 
 		self.tab_widget = QTabWidget()
@@ -128,7 +128,7 @@ class CustomTab(QWidget):
 		self.tab_exif_ui(model)
 
 	def tab_info_ui(self, model):
-		"""Set the reference to model and set general info into widget"""
+		"""Set the dataset to model and set general info into widget"""
 		self.model = model
 		general_info = self.model.get_general_info()
 		layout = QVBoxLayout()
@@ -145,7 +145,7 @@ class CustomTab(QWidget):
 		self.tab_info.setLayout(layout)
 
 	def tab_exif_ui(self, model):
-		"""Set the reference to model and set exif data into widget"""
+		"""Set the dataset to model and set exif data into widget"""
 		self.model = model
 		exif = self.model.get_exif()
 		layout = QVBoxLayout()
@@ -205,12 +205,12 @@ class ImageFileList(QListWidget):
 	"""
 	Custom Widget to list of images.
 	Attributes:
-		parent         reference to parent (Main Window)
-		model          reference to an object of class Extract (the model)
-		viewer         reference to an object of class ImageView (main image)
+		parent         dataset to parent (Main Window)
+		model          dataset to an object of class Extract (the model)
+		viewer         dataset to an object of class ImageView (main image)
 	"""
 	def __init__(self, model, viewer, parent=None):
-		"""Set several parameters and reference to parent, model and viewer"""
+		"""Set several parameters and dataset to parent, model and viewer"""
 		QListWidget.__init__(self, parent)
 		self.setIconSize(QSize(100, 100))
 		self.itemDoubleClicked.connect(self.upload_image)

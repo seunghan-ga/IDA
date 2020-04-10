@@ -16,7 +16,6 @@ from . import utils
 from idc_tool import QT5
 from idc_tool.logger import logger
 from idc_tool.config import get_config
-from idc_tool.config import get_info
 from idc_tool.widgets import LabelDialog
 from idc_tool.widgets import LabelQListWidget
 from idc_tool.widgets import CanvasInit
@@ -94,7 +93,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.category_dock = self.category.category_dock
 
         features = QtWidgets.QDockWidget.DockWidgetFeatures()
-        for dock in ['inference_dock', 'property_dock', 'defect_dock', 'file_dock']:
+        for dock in ['inference_dock', 'property_dock', 'defect_dock', 'file_dock', 'category_dock']:
             if self._config[dock]['closable']:
                 features = features | QtWidgets.QDockWidget.DockWidgetClosable
             if self._config[dock]['floatable']:
@@ -489,6 +488,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
             if detect_result.returncode == 0:
                 script = ['python', '../detection_tool/demo_evaluation.py']
+                script.append('-m')
+                script.append(str(self._config['model_type']))
                 script.append('-c')
                 script.append(str(self._config['classes']))
                 script.append('-p')
@@ -544,14 +545,16 @@ class MainWindow(QtWidgets.QMainWindow):
                 classes = self._config['classes']
                 labeled_file_list = {}
                 for i in result_value[3:]:
-                    file_path = os.path.abspath(os.path.join(labeled_path, classes[int(i)]))
-                    for file in os.listdir(file_path):
-                        labeled_file_list.__setitem__(file, {'path': file_path, 'class': classes[int(i)]})
-
-                nonlabel_path = os.path.abspath(os.path.join(labeled_path, 'tmp'))
-                if os.path.exists(nonlabel_path):
-                    for file in os.listdir(nonlabel_path):
-                        labeled_file_list.__setitem__(file, {'path': nonlabel_path, 'class': 'None'})
+                    if i != -1:
+                        file_path = os.path.abspath(os.path.join(labeled_path, classes[int(i)]))
+                        if os.path.exists(file_path):
+                            for file in os.listdir(file_path):
+                                labeled_file_list.__setitem__(file, {'path': file_path, 'class': classes[int(i)]})
+                    else:
+                        nonlabel_path = os.path.abspath(os.path.join(labeled_path, 'tmp'))
+                        if os.path.exists(nonlabel_path):
+                            for file in os.listdir(nonlabel_path):
+                                labeled_file_list.__setitem__(file, {'path': nonlabel_path, 'class': 'None'})
 
                 for file in labeled_file_list.keys():
                     self.category.crop_image_list.addItem(file)

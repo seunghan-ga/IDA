@@ -11,7 +11,7 @@ class Image:
 
     def registriation(self, test_image, ref_image):
         """
-        reference 이미지와 test 이미지의 구도를 맞춤
+        dataset 이미지와 test 이미지의 구도를 맞춤
         Keyword arguments:
         :param test_image: 테스트 이미지
         :param ref_image: 기준 이미지
@@ -61,7 +61,7 @@ class Image:
         homography, mask = cv2.findHomography(p1, p2, cv2.RANSAC)
 
         # Use this matrix to transform the
-        # colored image wrt the reference image.
+        # colored image wrt the dataset image.
         transformed_img = cv2.warpPerspective(test_image, homography, (width, height))
 
         return transformed_img
@@ -78,7 +78,7 @@ class Image:
         gray_A_blur = cv2.GaussianBlur(gray_A, (5, 5), 0)
         binary_A = cv2.adaptiveThreshold(gray_A_blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 5, 2)
 
-        # reference images
+        # dataset images
         gray_B = cv2.equalizeHist(cv2.cvtColor(img_B, cv2.COLOR_BGR2GRAY))
         gray_B_blur = cv2.GaussianBlur(gray_B, (5, 5), 0)
         binary_B = cv2.adaptiveThreshold(gray_B_blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 5, 2)
@@ -133,7 +133,7 @@ class Image:
         cnts = cv2.findContours(filter7, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         cnts = imutils.grab_contours(cnts)
         d = []
-        print(cnts)
+
         i = 0
         for c in cnts:
             (x, y, w, h) = cv2.boundingRect(c)

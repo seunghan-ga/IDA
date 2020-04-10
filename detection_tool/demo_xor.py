@@ -37,6 +37,7 @@ class External(QThread):
         normal_path = os.path.abspath(path_info['xor_normal_path'])
         result_path = os.path.abspath(path_info['xor_result_path'])
         test_path = os.path.abspath(path_info['xor_test_path'])
+        labeled_path = os.path.abspath(path_info['labeled_path'])
 
         if os.path.exists(crop_path):
             shutil.rmtree(crop_path)
@@ -44,6 +45,8 @@ class External(QThread):
             shutil.rmtree(origin_path)
         if os.path.exists(result_path):
             shutil.rmtree(result_path)
+        if os.path.exists(labeled_path):
+            shutil.rmtree(labeled_path)
 
         print('\n ******************' + 'Start Defect Inspection' + '******************')
         classes = class_info.values()
