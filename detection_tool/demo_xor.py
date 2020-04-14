@@ -5,8 +5,11 @@ import cv2
 import sys
 import os
 
-from PyQt5.QtWidgets import QApplication, QDialog, QProgressBar
-from PyQt5.QtCore import QThread, pyqtSignal
+from PyQt5.QtWidgets import QApplication
+from PyQt5.QtWidgets import QDialog
+from PyQt5.QtWidgets import QProgressBar
+from PyQt5.QtCore import QThread
+from PyQt5.QtCore import pyqtSignal
 from tqdm import tqdm
 
 from detection_tool.transformation.image_function import Image
@@ -38,6 +41,7 @@ class External(QThread):
         result_path = os.path.abspath(path_info['xor_result_path'])
         test_path = os.path.abspath(path_info['xor_test_path'])
         labeled_path = os.path.abspath(path_info['labeled_path'])
+        classes = class_info.values()
 
         if os.path.exists(crop_path):
             shutil.rmtree(crop_path)
@@ -49,12 +53,10 @@ class External(QThread):
             shutil.rmtree(labeled_path)
 
         print('\n ******************' + 'Start Defect Inspection' + '******************')
-        classes = class_info.values()
         for defect in classes:
             count += 100 / len(classes)
             print('\n ----------------' + defect + '----------------')
             _test_path = os.path.abspath(os.path.join(test_path, defect))
-
             try:
                 files = os.listdir(_test_path)
             except Exception as e:
@@ -69,49 +71,36 @@ class External(QThread):
             if not os.path.exists(os.path.abspath(os.path.join(origin_path, defect))):
                 os.mkdir(os.path.abspath(os.path.join(origin_path, defect)))
 
-            # image Preprocess
             tot_sum = 0
-            try:
-                for i in tqdm(range(len(files))):
-                    if str(os.path.join(_test_path, files[i])).replace('\\', '/') in args.individual_path:
-                        tot_sum += i
-                        # Test image
-                        img_test = cv2.imread(os.path.join(_test_path, files[i]))
-                        temp = files[i].split('_')[0]
-                        # Ref image
-                        img_ref = cv2.imread(os.path.join(normal_path, temp + '.JPG'))
-                        # Register
-                        transform_image = Image().registriation(img_test, img_ref)
-                        # XOR
-                        diff_image = Image().image_comparison(transform_image, img_ref)
-                        # Filter
-                        filtered_image = Image().image_filter(diff_image)
-                        # defect image
-                        _, _ = Image().image_defect(filtered_image, transform_image, size=32,
-                                                    correction=20,
-                                                    filename1=files[i].split('.')[0],
-                                                    filename2=files[i],
-                                                    crop_path=os.path.join(crop_path,),
-                                                    origin_path=os.path.join(origin_path, defect),
-                                                    result_path=result_path)
-            except Exception as e:
-                print(e)
-
+            for i in tqdm(range(len(files))):
+                if str(os.path.join(_test_path, files[i])).replace('\\', '/') in args.individual_path:
+                    tot_sum += i
+                    test_image = cv2.imread(os.path.join(_test_path, files[i]))
+                    test_filename = files[i].split('_')[0] + '.JPG'
+                    ref_image = cv2.imread(os.path.join(normal_path, test_filename))
+                    transform_image = Image().registriation(test_image, ref_image)
+                    diff_image = Image().image_comparison(transform_image, ref_image)
+                    filtered_image = Image().image_filter(diff_image)
+                    _, _ = Image().image_defect(filtered_image, transform_image, size=32,
+                                                correction=20,
+                                                filename1=files[i].split('.')[0],
+                                                filename2=files[i],
+                                                crop_path=os.path.join(crop_path,),
+                                                origin_path=os.path.join(origin_path, defect),
+                                                result_path=result_path)
             self.countChanged.emit(count)
             print('\n 검출 파일 수 : ' + str(tot_sum))
         print('\n ******************' + 'Defect Extraction Completed' + '*************************')
-
         e = time.time()
         print(e - s)
 
 
 class Actions(QDialog):
-    """
-    진행률 표시 줄과 버튼으로 구성된 다이얼로그 박스.
-    """
-
+    """진행률 표시 줄과 버튼으로 구성된 다이얼로그 박스."""
     def __init__(self):
         super().__init__()
+        self.progress = None
+        self.calc = None
         self.initUI()
 
     def initUI(self):

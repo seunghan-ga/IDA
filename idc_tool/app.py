@@ -16,14 +16,13 @@ from . import utils
 from idc_tool import QT5
 from idc_tool.logger import logger
 from idc_tool.config import get_config
+from idc_tool.label_file import LabelFile
+from idc_tool.label_file import LabelFileError
 from idc_tool.widgets import LabelDialog
 from idc_tool.widgets import LabelQListWidget
 from idc_tool.widgets import CanvasInit
-from idc_tool.label_file import LabelFile
-from idc_tool.label_file import LabelFileError
 from idc_tool.widgets import ZoomWidget
 from idc_tool.widgets import ToolBar
-
 from idc_tool.docks.inference_dock import InferenceDock
 from idc_tool.docks.property_dock import PropertyDock
 from idc_tool.docks.defect_dock import DefectDock
@@ -140,16 +139,16 @@ class MainWindow(QtWidgets.QMainWindow):
         self.zoom_level = 100
         self.fit_window = False
 
-        # XXX: Could be completely declarative.
         # Restore application settings.
         self.settings = QtCore.QSettings('ImageDefectAnalytics', 'ImageDefectAnalytics')
-        # FIXME: QSettings.value can return None on PyQt4
         self.recentFiles = self.settings.value('recentFiles', []) or []
-        # self.resize(self.settings.value('window/size', QtCore.QSize(600, 500)))
-        # self.move(self.settings.value('window/position', QtCore.QPoint(0, 0)))
-        # self.restoreState(self.settings.value('window/state', QtCore.QByteArray()))
+        self.resize(self.settings.value('window/size', QtCore.QSize(600, 500)))
+        self.move(self.settings.value('window/position', QtCore.QPoint(0, 0)))
+        self.restoreState(self.settings.value('window/state', QtCore.QByteArray()))
+
         self.populateModeActions()
         self.updateFileMenu()
+
         if self.filename is not None:
             self.queueEvent(functools.partial(self.loadFile, self.filename))
         self.statusBar().showMessage('%s started.' % __appname__)
@@ -167,7 +166,7 @@ class MainWindow(QtWidgets.QMainWindow):
         elif answer == mb.Save:
             self.analysis()
             return True
-        else:  # answer == mb.Cancel
+        else:
             return False
 
     def errorMessage(self, title, message):
@@ -425,8 +424,8 @@ class MainWindow(QtWidgets.QMainWindow):
             return
         if len(image_list) <= 0:
             return
-        filename = None
 
+        filename = None
         if self.filename is None:
             filename = image_list[0]
         else:
@@ -452,6 +451,7 @@ class MainWindow(QtWidgets.QMainWindow):
             return
         if self.filename is None:
             return
+
         currIndex = image_list.index(self.filename)
         if currIndex - 1 >= 0:
             filename = image_list[currIndex - 1]
@@ -522,45 +522,40 @@ class MainWindow(QtWidgets.QMainWindow):
             else:
                 print("Defect Detection fail")
 
-            try:
-                result_path_total = self._config['paths']['eval_result_path_total']
-                result_path_text = self._config['paths']['eval_result_path_text']
-                labeled_path = self._config['paths']['labeled_path']
+            result_path_total = self._config['paths']['eval_result_path_total']
+            result_path_text = self._config['paths']['eval_result_path_text']
+            labeled_path = self._config['paths']['labeled_path']
 
-                pixmap = QPixmap(result_path_total)
-                pixmap = pixmap.scaled(QSize(min(self.size().width(), 384), min(self.size().height(), 384)),
-                                       Qt.KeepAspectRatioByExpanding, Qt.FastTransformation)
+            pixmap = QPixmap(result_path_total)
+            pixmap = pixmap.scaled(QSize(min(self.size().width(), 384), min(self.size().height(), 384)),
+                                   Qt.KeepAspectRatioByExpanding, Qt.FastTransformation)
+            self.inference.lb_result.resize(pixmap.width(), pixmap.height())
+            self.inference.lb_result.setPixmap(pixmap)
+            self.inference.lb_result.show()
 
-                self.inference.lb_result.resize(pixmap.width(), pixmap.height())
-                self.inference.lb_result.setPixmap(pixmap)
-                self.inference.lb_result.show()
+            result_value = open(result_path_text, mode='rt', encoding='utf-8').readline()
+            result_value = result_value.split('/')
+            self.inference.lb_result_value.clear()
+            self.inference.lb_result_value.insertPlainText("Number of PCB : {0} \n".format(result_value[0]))
+            self.inference.lb_result_value.insertPlainText("Number of Defects : {0} \n".format(result_value[1]))
 
-                result_value = open(result_path_text, mode='rt', encoding='utf-8').readline()
-                result_value = result_value.split('/')
-                self.inference.lb_result_value.clear()
-                self.inference.lb_result_value.insertPlainText("Number of PCB : {0} \n".format(result_value[0]))
-                self.inference.lb_result_value.insertPlainText("Number of Defects : {0} \n".format(result_value[1]))
-                # self.inference.lb_result_value.insertPlainText("Accuracy : {0} \n".format(result_value[2]))
+            classes = self._config['classes']
+            labeled_file_list = {}
+            for i in result_value[3:]:
+                if i != -1:
+                    file_path = os.path.abspath(os.path.join(labeled_path, classes[int(i)]))
+                    if os.path.exists(file_path):
+                        for file in os.listdir(file_path):
+                            labeled_file_list.__setitem__(file, {'path': file_path, 'class': classes[int(i)]})
+                else:
+                    nonlabel_path = os.path.abspath(os.path.join(labeled_path, 'None'))
+                    if os.path.exists(nonlabel_path):
+                        for file in os.listdir(nonlabel_path):
+                            labeled_file_list.__setitem__(file, {'path': nonlabel_path, 'class': 'None'})
 
-                classes = self._config['classes']
-                labeled_file_list = {}
-                for i in result_value[3:]:
-                    if i != -1:
-                        file_path = os.path.abspath(os.path.join(labeled_path, classes[int(i)]))
-                        if os.path.exists(file_path):
-                            for file in os.listdir(file_path):
-                                labeled_file_list.__setitem__(file, {'path': file_path, 'class': classes[int(i)]})
-                    else:
-                        nonlabel_path = os.path.abspath(os.path.join(labeled_path, 'tmp'))
-                        if os.path.exists(nonlabel_path):
-                            for file in os.listdir(nonlabel_path):
-                                labeled_file_list.__setitem__(file, {'path': nonlabel_path, 'class': 'None'})
-
-                for file in labeled_file_list.keys():
-                    self.category.crop_image_list.addItem(file)
-                self.category.labeled_file_list = labeled_file_list
-            except Exception as e:
-                print(e)
+            for file in labeled_file_list.keys():
+                self.category.crop_image_list.addItem(file)
+            self.category.labeled_file_list = labeled_file_list
 
     def selectFile(self):
         if self._selectedAll == False:
@@ -640,18 +635,16 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def scaleFitWindow(self):
         """Figure out the size of the pixmap to fit the main widget."""
-        e = 2.0  # So that no scrollbars are generated.
+        e = 2.0
         w1 = self.centralWidget().width() - e
         h1 = self.centralWidget().height() - e
         a1 = w1 / h1
-        # Calculate a new scale value based on the pixmap's aspect ratio.
         w2 = self.canvas.pixmap.width() - 0.0
         h2 = self.canvas.pixmap.height() - 0.0
         a2 = w2 / h2
         return w1 / w2 if a2 >= a1 else h1 / h2
 
     def scaleFitWidth(self):
-        # The epsilon does not seem to work too well here.
         w = self.centralWidget().width() - 2.0
         return w / self.canvas.pixmap.width()
 
@@ -749,8 +742,7 @@ class MainWindow(QtWidgets.QMainWindow):
                                     analysis=self.action_analysis,
                                     open=self.action_open_, close=self.action_close,
                                     selectFile=self.action_selectFile,
-                                    zoom=self.zoom, zoomIn=self.action_zoomIn,
-                                    zoomOut=self.action_zoomOut, zoomOrg=self.action_zoomOrg,
+                                    zoom=self.zoom, zoomIn=self.action_zoomIn,                                    zoomOut=self.action_zoomOut, zoomOrg=self.action_zoomOrg,
                                     leftRotate=self.action_leftRotate, rightRotate=self.action_rightRotate,
                                     fitWindow=self.action_fitWindow, fitWidth=self.action_fitWidth,
                                     zoomActions=self.zoomActions,
