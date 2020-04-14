@@ -57,10 +57,7 @@ class External(QThread):
             count += 100 / len(classes)
             print('\n ----------------' + defect + '----------------')
             _test_path = os.path.abspath(os.path.join(test_path, defect))
-            try:
-                files = os.listdir(_test_path)
-            except Exception as e:
-                files = []
+            files = os.listdir(_test_path) if os.path.exists(_test_path) else []
 
             if not os.path.exists(crop_path):
                 os.makedirs(crop_path)
