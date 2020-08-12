@@ -9,7 +9,7 @@ from tensorflow.keras.preprocessing.image import ImageDataGenerator
 
 class Image:
 
-    def registriation(self, test_image, ref_image):
+    def registration(self, test_image, ref_image):
         """
         dataset 이미지와 test 이미지의 구도를 맞춤
         Keyword arguments:
